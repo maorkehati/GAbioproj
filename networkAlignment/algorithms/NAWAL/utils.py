@@ -13,7 +13,7 @@ import inspect
 import pdb
 import numpy as np
 import torch.nn.functional as F
-
+import os
 
 logger = getLogger()
 
@@ -37,7 +37,7 @@ def get_nn_avg_dist(emb, query, knn):
 
 
 
-def get_candidates(emb1, emb2, p_keep):
+def get_candidates(emb1, emb2, num_keep):
     """
     Get best translation pairs candidates.
     """
@@ -48,6 +48,9 @@ def get_candidates(emb1, emb2, p_keep):
 
     # number of source words to consider
     n_src = emb1.size(0)
+    
+    print("asdf")
+    print(emb1.shape, emb2.shape)
     
     # contextual dissimilarity measure
     if True:
@@ -89,13 +92,19 @@ def get_candidates(emb1, emb2, p_keep):
     all_pairs = all_pairs[reordered]
     
     len_all_pairs = len(all_pairs)
-    num_keeps = int(p_keep * len_all_pairs)
-    all_scores = all_scores[:num_keeps]
-    all_pairs = all_pairs[:num_keeps]
+    
+    #p_keep = 0.45
+    #num_keeps = int(p_keep * len_all_pairs)
+    
+    if num_keep > 0:
+        all_scores = all_scores[:num_keep]
+        all_pairs = all_pairs[:num_keep]
+        
+    print('p', all_pairs[0], all_pairs[1])
     return all_pairs
 
 
-def build_dictionary(src_emb, tgt_emb, s2t_candidates=None, t2s_candidates=None, p_keep=1):
+def build_dictionary(src_emb, tgt_emb, s2t_candidates=None, t2s_candidates=None, num_keep = -1):
     """
     Build a training dictionary given current embeddings / mapping.
     """
@@ -106,10 +115,10 @@ def build_dictionary(src_emb, tgt_emb, s2t_candidates=None, t2s_candidates=None,
 
     if s2t:
         if s2t_candidates is None:
-            s2t_candidates = get_candidates(src_emb, tgt_emb, p_keep)
+            s2t_candidates = get_candidates(src_emb, tgt_emb, num_keep)
     if t2s:
         if t2s_candidates is None:
-            t2s_candidates = get_candidates(tgt_emb, src_emb, p_keep)
+            t2s_candidates = get_candidates(tgt_emb, src_emb, num_keep)
         t2s_candidates = torch.cat([t2s_candidates[:, 1:], t2s_candidates[:, :1]], 1)
 
     # if params.dico_build == 'S2T':

@@ -33,6 +33,7 @@ class Dataset:
     def _load_G(self):
         G_data = json.load(open(os.path.join(self.data_dir, "G.json")))
         self.G = json_graph.node_link_graph(G_data)
+        
         if type(self.G.nodes()[0]) is int:
             mapping = {k: str(k) for k in self.G.nodes()}
             self.G = nx.relabel_nodes(self.G, mapping)
@@ -42,6 +43,7 @@ class Dataset:
         conversion = type(self.G.nodes()[0])
         self.id2idx = {}
         id2idx = json.load(open(id2idx_file))
+
         for k, v in id2idx.items():
             self.id2idx[conversion(k)] = v
 

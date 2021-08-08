@@ -1,6 +1,8 @@
 import numpy as np
 # import scipy.sparse.csr_matrix
-import pdb
+
+def get_pairs(M):
+    return [(ind, np.argwhere(arr).item()) for ind, arr in enumerate(M) if arr.sum() == 1]
 
 def greedy_match(S):
     """
