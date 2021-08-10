@@ -59,9 +59,9 @@ class NAWAL(NetworkAlignmentModel):
         self.encoder = None
         self.decoder = None
         
-        self.path = '/home/yandex/AMNLP2021/maorkehati/GAbioproj/networkAlignment'
-
-
+        self.gpath  = '/home/yandex/AMNLP2021/maorkehati/GAbioproj/'
+        self.path = f'{self.gpath}/networkAlignment'
+        
     def get_source_embedding(self):
         return self.source_embedding
 
@@ -92,9 +92,26 @@ class NAWAL(NetworkAlignmentModel):
             groundtruth_dict_pale = load_gt(self.args.groundtruth, self.source_dataset.id2idx, self.target_dataset.id2idx, 'dict')
             self.pale_acc = get_statistics(self.S_pale, groundtruth_dict_pale, groundtruth_matrix_pale)
         # print("Accuracy: {}".format(acc))
+        else: #NAWAL PPI
+            self.getHomologs()
 
         self.nawal_mapping()
         return self.S 
+        
+    def getHomologs(self):
+        self.homologs = []
+        
+        with open(f'{path}/{"/".join([i for i in self.source_dataset.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
+            sd = pickle.load(handle)
+            
+        with open(f'{path}/{"/".join([i for i in self.target_dataset.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
+            td = pickle.load(handle)
+            
+        with open(f"{self.gpath}/munk/data/homologs/human-mouse/human-mouse.txt",'r') as handle:
+            for l in handle.readlines():
+                pair = l.strip().split("\t")
+                pair = [int(sd[pair[0]]), int(td[pair[1]])]
+                self.homologs.append(pair)
 
     def procrustes(self, dico):
         """
@@ -470,6 +487,10 @@ class NAWAL(NetworkAlignmentModel):
                               "epoch time", "{:.5f}".format(time.time()-start_time)
                           )
                 total_steps += 1
+                
+            print("EMBEDDING {} Epoch:".format(graph_name), '%03d' %epoch,
+                              "train_loss=", "{:.5f}".format(loss.item()),
+                              "epoch time", "{:.5f}".format(time.time()-start_time))
             
         embedding = embedding_model.get_embedding()
         embedding = embedding.cpu().detach().numpy()

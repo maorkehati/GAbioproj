@@ -1,5 +1,6 @@
 import os
 os.environ['MPLCONFIGDIR'] = '/home/yandex/AMNLP2021/maorkehati/GAbioproj'
+os.environ['XDG_RUNTIME_DIR'] = '/home/yandex/AMNLP2021/maorkehati/GAbioproj'
 
 from input.dataset import Dataset
 from time import time
@@ -12,6 +13,10 @@ import numpy as np
 import torch
 import argparse
 import pickle
+
+from matplotlib import pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 
 
 def parse_args():
@@ -140,6 +145,7 @@ def parse_args():
     parser_NAWAL.add_argument('--lr_shrink',                default=1.0,  type=float)
     
     parser_NAWAL.add_argument('--folder',                   default="",  type=str)
+    parser_NAWAL.add_argument('--resnik',                   action="store_true")
     
     
     return parser.parse_args()
@@ -147,15 +153,16 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     print(args)
+    
+    algorithm = args.algorithm
 
     source_dataset = Dataset(args.source_dataset)
     target_dataset = Dataset(args.target_dataset)
     source_nodes = source_dataset.G.nodes()
     target_nodes = target_dataset.G.nodes()
-    groundtruth_matrix = graph_utils.load_gt(args.groundtruth, source_dataset.id2idx, target_dataset.id2idx)
-
-    algorithm = args.algorithm
-
+    if algorithm != "NAWAL":
+        groundtruth_matrix = graph_utils.load_gt(args.groundtruth, source_dataset.id2idx, target_dataset.id2idx)
+        
     if (algorithm == "IsoRank"):
         model = IsoRank(source_dataset, target_dataset, args.H, args.alpha, args.max_iter, args.tol)
     elif (algorithm == "FINAL"):
@@ -191,7 +198,8 @@ if __name__ == '__main__':
     
     pairs = get_pairs(greedy_match(S))
     
-    path = '/home/yandex/AMNLP2021/maorkehati/GAbioproj/networkAlignment'
+    path_g = '/home/yandex/AMNLP2021/maorkehati/GAbioproj'
+    path = f'{path_g}/networkAlignment'
     
     with open(f'{path}/{"/".join([i for i in args.source_dataset.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
         sd = pickle.load(handle)
@@ -199,6 +207,9 @@ if __name__ == '__main__':
     with open(f'{path}/{"/".join([i for i in args.target_dataset.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
         td = pickle.load(handle)
         
+    sd = dict({int(v): k for k, v in sd.items()})
+    td = dict({int(v): k for k, v in td.items()})
+    
     A_nodes = [sd[i] for i in range(S.shape[0])]
     B_nodes = [td[i] for i in range(S.shape[1])]
     dS = {'X':S, 'A_nodes': A_nodes, 'B_nodes': B_nodes, }
@@ -210,4 +221,26 @@ if __name__ == '__main__':
     with open(f"{path}/outs/{folder}/S.pkl",'wb') as handle:
         pickle.dump(dS, handle)
     
-    open(f"{path}/outs/{folder}/args.txt", 'w').write("\r\n".join([f'{i[0]}:{i[1]}' for i in list(vars(args).items())]))
+    with open(f"{path}/outs/{folder}/args.txt", 'w') as handle:
+        handle.write("\r\n".join([f'{i[0]}:{i[1]}' for i in list(vars(args).items())]))
+    
+    if args.resnik:
+        os.system(f'python plot_resnik_v_score.py -ms {path}/outs/{folder}/S.pkl -rs {path_g}/munk/data/resnik_scores/human-mouse.npz -o {path}/outs/{folder}/resnik.png')
+        
+    if args.save_emb:
+        with open(f"{path}/outs/{folder}/out.out", 'rb') as handle:
+            loss = []
+            for l in handle.readlines():
+                if l.startswith("EMBEDDING TARGET_GRAPH Epoch:") or l.startswith("EMBEDDING SOURCE_GRAPH Epoch:"):
+                    tl_ind = l.find("train_loss= ")+len("train_loss= ")
+                    loss.append(float(l[tl_ind : l.find(" ", tl_ind)]))
+                    
+        plt.plot(range(len(loss)), loss)
+        plt.xlabel('epoch')
+        plt.ylabel('loss')
+        
+        plt.savefig(f"{path}/outs/{folder}/{folder}_loss.png")
+        
+    elif args.load_emb:
+        pass
+                

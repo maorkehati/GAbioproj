@@ -15,8 +15,12 @@ def parse_args():
     return parser.parse_args()
 
 def preprocess_edgelist(edgelist_pre, edgelist, edgelist_dic):
-    os.remove(edgelist)
-    os.remove(edgelist_dic)
+    if os.path.exists(edgelist):
+        os.remove(edgelist)
+    
+    if os.path.exists(edgelist_dic):
+        os.remove(edgelist_dic)
+        
     d = {}
     c = 0
     fc = []

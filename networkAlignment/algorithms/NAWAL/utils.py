@@ -126,8 +126,6 @@ def build_dictionary(src_emb, tgt_emb, s2t_candidates=None, t2s_candidates=None,
     # logger.info('New train dictionary of %i pairs.' % dico.size(0))
     return dico.cuda()
 
-
-
 def get_optimizer(s):
     """
     Parse optimizer parameters.
