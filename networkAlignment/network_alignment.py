@@ -146,6 +146,7 @@ def parse_args():
     
     parser_NAWAL.add_argument('--folder',                   default="",  type=str)
     parser_NAWAL.add_argument('--resnik',                   action="store_true")
+    parser_NAWAL.add_argument('--landmark_lambda',          default=0.0,    type=float)
     
     
     return parser.parse_args()
@@ -228,18 +229,31 @@ if __name__ == '__main__':
         os.system(f'python plot_resnik_v_score.py -ms {path}/outs/{folder}/S.pkl -rs {path_g}/munk/data/resnik_scores/human-mouse.npz -o {path}/outs/{folder}/resnik.png')
         
     if args.save_emb:
-        with open(f"{path}/outs/{folder}/out.out", 'rb') as handle:
-            loss = []
+        with open(f"{path}/outs/{folder}/out.out", 'r') as handle:
+            lossS = []
+            lossT = []
             for l in handle.readlines():
-                if l.startswith("EMBEDDING TARGET_GRAPH Epoch:") or l.startswith("EMBEDDING SOURCE_GRAPH Epoch:"):
+                if l.startswith("EMBEDDING SOURCE_GRAPH Epoch:"):
                     tl_ind = l.find("train_loss= ")+len("train_loss= ")
-                    loss.append(float(l[tl_ind : l.find(" ", tl_ind)]))
+                    lossS.append(float(l[tl_ind : l.find(" ", tl_ind)]))
                     
-        plt.plot(range(len(loss)), loss)
+                elif l.startswith("EMBEDDING TARGET_GRAPH Epoch:"):
+                    tl_ind = l.find("train_loss= ")+len("train_loss= ")
+                    lossT.append(float(l[tl_ind : l.find(" ", tl_ind)]))
+                    
+        plt.plot(range(len(lossS)), lossS)
         plt.xlabel('epoch')
         plt.ylabel('loss')
+        imgname = folder.split("/")[-1]
+        plt.savefig(f"{path}/outs/{folder}/{imgname}_lossS.png")
+        plt.close()
         
-        plt.savefig(f"{path}/outs/{folder}/{folder}_loss.png")
+        plt.plot(range(len(lossT)), lossT)
+        plt.xlabel('epoch')
+        plt.ylabel('loss')
+        plt.savefig(f"{path}/outs/{folder}/{imgname}_lossT.png")
+        plt.close()
+    
         
     elif args.load_emb:
         pass

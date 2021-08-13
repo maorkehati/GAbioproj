@@ -99,19 +99,31 @@ class NAWAL(NetworkAlignmentModel):
         return self.S 
         
     def getHomologs(self):
-        self.homologs = []
+        self.source_homologs = []
+        self.target_homologs = []
         
-        with open(f'{path}/{"/".join([i for i in self.source_dataset.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
+        with open(f'{self.path}/{"/".join([i for i in self.source_dataset.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
             sd = pickle.load(handle)
             
-        with open(f'{path}/{"/".join([i for i in self.target_dataset.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
+        with open(f'{self.path}/{"/".join([i for i in self.target_dataset.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
             td = pickle.load(handle)
             
         with open(f"{self.gpath}/munk/data/homologs/human-mouse/human-mouse.txt",'r') as handle:
             for l in handle.readlines():
                 pair = l.strip().split("\t")
-                pair = [int(sd[pair[0]]), int(td[pair[1]])]
-                self.homologs.append(pair)
+                self.source_homologs.append(int(sd[pair[0]]))
+                self.target_homologs.append(int(td[pair[1]]))
+                #pair = [int(sd[pair[0]]), int(td[pair[1]])]
+                #self.homologs.append(pair)
+                
+        self.source_homologs = torch.tensor(self.source_homologs)
+        self.target_homologs = torch.tensor(self.target_homologs)
+                
+    def homolog_proximity(self):
+        source_after_mapping = self.self.mapping(self.source_embedding)
+        source_homologs = torch.index_select(source_after_mapping, 0, self.source_homologs)
+        target_homologs = torch.index_select(self.target_embedding, 0, self.target_homologs)
+        return F.CosineEmbeddingLoss(source_homologs, target_homologs, torch.ones(self.source_homologs.size(0)))
 
     def procrustes(self, dico):
         """
@@ -243,7 +255,13 @@ class NAWAL(NetworkAlignmentModel):
         # loss
         x, y = self.get_dis_xy(volatile=False)
         preds = self.discriminator(x)
-        loss = F.binary_cross_entropy(preds, 1 - y)
+        diss_loss = F.binary_cross_entropy(preds, 1 - y)
+        homolog_loss = 0
+        
+        if args.NAWAL_only:
+            homolog_loss = self.homolog_proximity()
+        
+        loss = diss_loss + self.args.landmark_lambda * homolog_loss
         
         # check NaN
         if (loss != loss).data.any():
@@ -256,7 +274,7 @@ class NAWAL(NetworkAlignmentModel):
         self.map_optimizer.step()
         self.orthogonalize()
 
-        return 2 * self.args.nawal_mapping_batch_size
+        return 2 * self.args.nawal_mapping_batch_size, diss_loss, homolog_loss, loss
 
     def update_lr(self):
         """
@@ -302,7 +320,8 @@ class NAWAL(NetworkAlignmentModel):
                     self.dis_step(stats)
 
                 # mapping training (discriminator fooling)
-                n_nodes_proc += self.mapping_step()
+                step_proc, diss_loss, homolog_loss, loss = self.mapping_step()
+                n_nodes_proc += step_proc
 
                 # log stats
                 if n_iter % 500 == 0:
@@ -317,6 +336,9 @@ class NAWAL(NetworkAlignmentModel):
                     n_nodes_proc = 0
                     for k, _ in stats_str:
                         del stats[k][:]
+                        
+                    print('mapping loss', diss_loss, homolog_loss, loss)
+                        
             # embeddings / discriminator evaluation
             self.dist_mean_cosine()
 
