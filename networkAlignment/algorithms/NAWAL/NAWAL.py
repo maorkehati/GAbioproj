@@ -14,6 +14,7 @@ import scipy
 
 import torch
 import numpy as np
+import pickle
 
 import argparse
 import time
@@ -62,6 +63,8 @@ class NAWAL(NetworkAlignmentModel):
         self.gpath  = '/home/yandex/AMNLP2021/maorkehati/GAbioproj/'
         self.path = f'{self.gpath}/networkAlignment'
         
+        self.CoEmbLoss = torch.nn.CosineEmbeddingLoss()
+        
     def get_source_embedding(self):
         return self.source_embedding
 
@@ -102,10 +105,10 @@ class NAWAL(NetworkAlignmentModel):
         self.source_homologs = []
         self.target_homologs = []
         
-        with open(f'{self.path}/{"/".join([i for i in self.source_dataset.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
+        with open(f'{self.path}/{"/".join([i for i in self.source_dataset.data_dir.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
             sd = pickle.load(handle)
             
-        with open(f'{self.path}/{"/".join([i for i in self.target_dataset.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
+        with open(f'{self.path}/{"/".join([i for i in self.target_dataset.data_dir.split("/") if i][:-1])}/edgelist/dic.pkl','rb') as handle:
             td = pickle.load(handle)
             
         with open(f"{self.gpath}/munk/data/homologs/human-mouse/human-mouse.txt",'r') as handle:
@@ -118,12 +121,18 @@ class NAWAL(NetworkAlignmentModel):
                 
         self.source_homologs = torch.tensor(self.source_homologs)
         self.target_homologs = torch.tensor(self.target_homologs)
-                
+        self.ones_CEL = torch.ones(self.source_homologs.size(0))
+        
+        if self.args.cuda:
+            self.source_homologs = self.source_homologs.cuda()
+            self.target_homologs = self.target_homologs.cuda()
+            self.ones_CEL = self.ones_CEL.cuda()
+            
     def homolog_proximity(self):
-        source_after_mapping = self.self.mapping(self.source_embedding)
+        source_after_mapping = self.mapping(self.source_embedding)
         source_homologs = torch.index_select(source_after_mapping, 0, self.source_homologs)
         target_homologs = torch.index_select(self.target_embedding, 0, self.target_homologs)
-        return F.CosineEmbeddingLoss(source_homologs, target_homologs, torch.ones(self.source_homologs.size(0)))
+        return self.CoEmbLoss(source_homologs, target_homologs, self.ones_CEL)
 
     def procrustes(self, dico):
         """
@@ -258,7 +267,7 @@ class NAWAL(NetworkAlignmentModel):
         diss_loss = F.binary_cross_entropy(preds, 1 - y)
         homolog_loss = 0
         
-        if args.NAWAL_only:
+        if self.args.NAWAL_only:
             homolog_loss = self.homolog_proximity()
         
         loss = diss_loss + self.args.landmark_lambda * homolog_loss

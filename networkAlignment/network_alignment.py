@@ -197,7 +197,11 @@ if __name__ == '__main__':
              
     print("Full_time: ", time() - start_time)
     
+    print(-1)
+    
     pairs = get_pairs(greedy_match(S))
+    
+    print(0)
     
     path_g = '/home/yandex/AMNLP2021/maorkehati/GAbioproj'
     path = f'{path_g}/networkAlignment'
@@ -217,16 +221,24 @@ if __name__ == '__main__':
         
     pairs = [(sd[i[0]], td[i[1]]) for i in pairs]
     
+    print(1)
+    
     folder = args.folder
     np.save(f"{path}/outs/{folder}/pairs.npy", pairs)
     with open(f"{path}/outs/{folder}/S.pkl",'wb') as handle:
         pickle.dump(dS, handle)
+        
+    print(2)
     
     with open(f"{path}/outs/{folder}/args.txt", 'w') as handle:
         handle.write("\r\n".join([f'{i[0]}:{i[1]}' for i in list(vars(args).items())]))
+        
+    print(3)
     
     if args.resnik:
         os.system(f'python plot_resnik_v_score.py -ms {path}/outs/{folder}/S.pkl -rs {path_g}/munk/data/resnik_scores/human-mouse.npz -o {path}/outs/{folder}/resnik.png')
+        
+    print(4)
         
     if args.save_emb:
         with open(f"{path}/outs/{folder}/out.out", 'r') as handle:
